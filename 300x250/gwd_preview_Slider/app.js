@@ -2,6 +2,10 @@ window.app = window.app || {};
 window.config = window.config || {};
 
 config.maxDeltaTime = 100;
+config.maxInteractionTime = 5000;
+config.autoplayDelay = 1000;
+config.autoplayDuration = 10000;
+config.autoplayEasing = easing.linear;
 config.progress = function(x) {
 	return (x - this.sliderMinX) / (this.sliderMaxX - this.sliderMinX);
 }
@@ -9,20 +13,25 @@ config.progress = function(x) {
 var dragX = config.sliderMinX;
 var autoplaying = false;
 var autoplayDelay = config.autoplayDelay;
+var controlsOff= false;
 
 app.onSliderDrag = function(event) {
+	if (controlsOff) return;
 	autoplaying = false
 	autoplayDelay = config.autoplayDelay;
 	dragX = event.clientX;
 }
 
-var sliderX = config.sliderMinX;
+var thumbX = config.sliderMinX;
 var galleryX = 0;
 var deltaTime;
 var previousTime = 0;
-var w_2;
+var totalTime = 0;
+var thumbHalfWidth;
+var galleryWidth;
 
 var autoplayCurrentTime;
+var autoplayCurrentDuration;
 var autoplayStartX
 var autoplayCurrentX;
 
@@ -35,27 +44,61 @@ function skipStep() {
 	return deltaTime > config.maxDeltaTime;
 }
 
+function setupTexts() {
+	window.texts = window.texts || [];
+	if (window.texts.length > 0) return;
+	if (!document.getElementById('text0')) return;
+
+	for (var i in config.textLimits) {
+		window.texts.push({
+			element: document.getElementById('text' + i),
+			limits: {
+				min: config.textLimits[i][0],
+				max: config.textLimits[i][1]
+			}
+		});
+	}
+}
+
 function setupElements() {
-	window.photos = window.photos || document.getElementById('gallery');
-	window.slider = window.slider || document.getElementById('slider-thumb');
-	if (slider) w_2 = slider.width / 2;
-	return photos && slider;
+	setupTexts();
+	window.background = window.background || document.getElementById('background');
+	window.gallery = window.gallery || document.getElementById('gallery');
+	window.thumb = window.thumb || document.getElementById('slider-thumb');
+	window.slider = window.slider || document.getElementById('slider');
+	if (thumb) thumbHalfWidth = thumb.width / 2;
+	if (background) galleryWidth = background.width;
+	return background && gallery && thumb && slider;
 }
 
 function autoplay() {
-	autoplayCurrentTime = Math.min(config.autoplayDuration, autoplayCurrentTime + deltaTime);
-	dragX = easing.inOutQuad(autoplayCurrentTime, autoplayStartX, autoplayCurrentX, config.autoplayDuration);
+	if (totalTime > config.maxInteractionTime)
+		hideControls();
+
+	autoplayCurrentTime = Math.min(autoplayCurrentDuration, autoplayCurrentTime + deltaTime);
+	dragX = config.autoplayEasing(autoplayCurrentTime, autoplayStartX, autoplayCurrentX, autoplayCurrentDuration);
+}
+
+function hideControls() {
+	if (controlsOff) return;
+	controlsOff = true;
+	setTimeout(function() {
+		slider.parentNode.removeChild(slider);
+	}, 500);
+	slider.classList.add('slider-fade-out');
 }
 
 function setupAutoplay() {
 	autoplaying = true;
-	dragX = sliderX + w_2;
+	dragX = thumbX + thumbHalfWidth;
 	autoplayCurrentTime = 0;
+	autoplayCurrentDuration = config.autoplayDuration * (1 - config.progress(thumbX));
 	autoplayStartX = dragX;
-	autoplayCurrentX = config.sliderMaxX + w_2 - sliderX;
+	autoplayCurrentX = config.sliderMaxX + thumbHalfWidth - thumbX;
 }
 
 function updateAutoplay() {
+	totalTime += deltaTime;
 	autoplayDelay -= deltaTime;
 	if (autoplayDelay <= 0 && !autoplaying) {
 		setupAutoplay();
@@ -65,15 +108,40 @@ function updateAutoplay() {
 }
 
 function updateSlider() {
-	sliderX = Math.max(config.sliderMinX, Math.min(config.sliderMaxX, dragX - w_2));
-	helper.transform(slider, "translateX(" + sliderX + "px)");
+	thumbX = Math.max(config.sliderMinX, Math.min(config.sliderMaxX, dragX - thumbHalfWidth));
+	helper.transform(thumb, "translateX(" + thumbX + "px)");
 }
 
-function updatePhotos() {
-	var progress = config.progress(sliderX);
-	var targetX = (photos.width - config.pageWidth) * progress * -1;
-	galleryX = galleryX + (targetX - galleryX) * deltaTime / 200;
-	helper.transform(photos, "translateX(" + galleryX + "px)");
+function updateGallery() {
+	var progress = config.progress(thumbX);
+	var targetX = (galleryWidth - config.pageWidth) * progress * -1;
+	var newX = galleryX + (targetX - galleryX) * deltaTime / 200;
+	if (isNaN(newX)) return;
+	galleryX = newX;
+	helper.transform(gallery, "translateX(" + (Math.round(galleryX * 100) / 100) + "px)");
+}
+
+function updateTexts() {
+	var windowLimits = {
+		min: -galleryX,
+		max: config.pageWidth - galleryX
+	};
+
+	if (isNaN(windowLimits.min) || isNaN(windowLimits.max)) return;
+
+	console.log(windowLimits);
+
+	texts.forEach(function(text) {
+		if (windowLimits.max > text.limits.min && windowLimits.min < text.limits.max) {
+			if (text.element.classList.contains('hidden')) {
+				text.element.classList.remove('hidden');
+				text.element.classList.add('text-fade-in');
+			}
+		} else {
+			text.element.classList.remove('text-fade-in');
+			text.element.classList.add('hidden');
+		}
+	});
 }
 
 (function update(now) {
@@ -87,5 +155,6 @@ function updatePhotos() {
 	
 	updateAutoplay();
 	updateSlider();
-	updatePhotos();
+	updateGallery();
+	updateTexts();
 })(0);

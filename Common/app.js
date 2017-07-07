@@ -129,6 +129,8 @@ function updateTexts() {
 
 	if (isNaN(windowLimits.min) || isNaN(windowLimits.max)) return;
 
+	console.log(windowLimits);
+
 	texts.forEach(function(text) {
 		if (windowLimits.max > text.limits.min && windowLimits.min < text.limits.max) {
 			if (text.element.classList.contains('hidden')) {
