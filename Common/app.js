@@ -118,7 +118,7 @@ function updateGallery() {
 	var newX = galleryX + (targetX - galleryX) * deltaTime / 200;
 	if (isNaN(newX)) return;
 	galleryX = newX;
-	helper.transform(gallery, "translateX(" + (Math.round(galleryX * 100) / 100) + "px)");
+	helper.transform(gallery, "translateX(" + galleryX + "px)");
 }
 
 function updateTexts() {
@@ -128,8 +128,6 @@ function updateTexts() {
 	};
 
 	if (isNaN(windowLimits.min) || isNaN(windowLimits.max)) return;
-
-	console.log(windowLimits);
 
 	texts.forEach(function(text) {
 		if (windowLimits.max > text.limits.min && windowLimits.min < text.limits.max) {
@@ -149,10 +147,10 @@ function updateTexts() {
 	updateTime(now);
 	if (skipStep())
 		return;
-	
+
 	if (!setupElements())
 		return;
-	
+
 	updateAutoplay();
 	updateSlider();
 	updateGallery();
